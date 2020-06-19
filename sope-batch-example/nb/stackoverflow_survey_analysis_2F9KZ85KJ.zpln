@@ -1,0 +1,668 @@
+{
+  "paragraphs": [
+    {
+      "text": "%spark\n/**\n * Instead of writing explicit function definitions that take a dataframe(s) and return a dataframe, an interface for composable SQL operations is provided by the sope library in the form of Scala DSL.\n * It allows us to write the SQL logic in more expressible, concise and readable manner.\n * The below code demonstrates the application of this Scala DSL for the transformation of data and tries to generalize analysis on data groups with support for filters.\n * \n * Data: Stackoverflow developer survey data (2019) available under Open Database License (ODbL).\n * \n * Groupings performed:\n *  - Popular programming languages with distribution across developer experience \n *  - Popular programming languages with distribution across developer experience for developers that have used Apache Spark\n *  - Popular integrated development environments with distribution across developer experience \n *  - Popular IDEs with distribution across developer experience for developers that have used Apache Spark\n * \n * Please refer https://mayur2810.github.io/sope/sope-spark/#com.sope.spark.sql.dsl.package for Scala Doc\n **/\n\n\nimport org.apache.spark.sql.DataFrame\nimport org.apache.spark.sql.types._\nimport org.apache.spark.sql.functions._\nimport org.apache.spark.sql.Column\nimport com.sope.spark.sql._\nimport com.sope.spark.sql.dsl._\n\n\n// Raw Data\nval surveyRawDf \u003d  spark.read.options(Map(\"header\" -\u003e \"true\")).csv(\"/data/so-survey/survey_results_public.csv\").persist()\n\n// Column Functions\nval castIntFunc \u003d (column: Column) \u003d\u003e column.cast(\"int\")\nval castLongFunc \u003d (column: Column) \u003d\u003e column.cast(\"long\")\nval explodeFunc \u003d (column: String) \u003d\u003e Transform(column -\u003e explode(split(col(column), \";\")))\n\n\n\n// Labels\nval ExperienceLabel \u003d \"ExperienceGroup\"\nval experienceLabelTransform \u003d Transform(ExperienceLabel -\u003e when(\u0027YearsCode lt 5, \"Exp:5 yrs below\")\n                                                               .when((\u0027YearsCode geq 5) and (\u0027YearsCode leq 10), \"Exp:5-10 yrs\")\n                                                               .when((\u0027YearsCode gt 10) and (\u0027YearsCode leq 15), \"Exp:10-15 yrs\")\n                                                               .when(\u0027YearsCode gt 15, \"Exp:15+ yrs\")\n                                                               .otherwise(\"NA\"))\n                                                               \n\n// Filters\nval filterNonNAFunc \u003d (column: String) \u003d\u003e Filter(s\"$column !\u003d \u0027NA\u0027 and $column !\u003d \u0027Other(s):\u0027\")\n\n/**\n * instead of\n *  def sparkDevFilter(inputDF: DataFrame) \u003d {\n *    inputDF\n *    .withColumn(\"MiscTechWorkedWith\", explode(split(col(column), \";\")))\n *    .filter(\"MiscTechWorkedWith \u003d \u0027Apache Spark\u0027\")\n *   } \n * Below statements expresses the same composing \u0027DataFrame \u003d\u003e DataFrame\u0027 functions\n * \n **/\nval sparkDevFilter \u003d explodeFunc(\"MiscTechWorkedWith\") + Filter(\"MiscTechWorkedWith \u003d \u0027Apache Spark\u0027\")\n\n\n// Transform Data\nval surveyDataWithLabelsDf \u003d\nTransform(castIntFunc, None, Seq(\"Respondent\", \"OrgSize\", \"YearsCode\", \"Age1stCode\", \"YearsCodePro\", \"WorkWeekHrs\", \"Age\") :_*) +  \nTransform(castLongFunc, None, Seq(\"CompTotal\", \"ConvertedComp\") :_* ) +\nexperienceLabelTransform --\u003e surveyRawDf // chain and apply t1 + t2 ... --\u003e dataframe\n\n\n// Groups on provided grouping, label columns and counts the records in the groups along with percentage.\ndef explodeAndGroup(groupColumn: String, \n                    labelColumn: String, \n                    filters: DFFunc \u003d Filter(\"true\")) \u003d {\n   val validReponsesDF \u003d filters + filterNonNAFunc(groupColumn)  --\u003e surveyDataWithLabelsDf\n  \n   filters +\n   explodeFunc(groupColumn) + \n   GroupBy(groupColumn, labelColumn).agg(count(\"*\").as(\"Count\")) + \n   Transform(\"Percentage\" -\u003e round(col(\"Count\") * 100 / lit(validReponsesDF.count), 1)) + \n   OrderBy(\"Percentage:desc\") --\u003e surveyDataWithLabelsDf\n}\n\n",
+      "user": "anonymous",
+      "dateUpdated": "2020-06-19 15:50:52.478",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "multiBarChart",
+              "height": 588.0,
+              "optionOpen": false,
+              "setting": {
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "stacked": true
+                },
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "LanguageWorkedWith": "string",
+                      "ExperienceGroup": "string",
+                      "Count": "string",
+                      "Percentage": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "lineChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "forceY": false,
+                  "lineWithFocus": false,
+                  "isDateFormat": false,
+                  "dateFormat": ""
+                },
+                "stackedAreaChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "style": "stack"
+                },
+                "scatterChart": {}
+              },
+              "keys": [
+                {
+                  "name": "LanguageWorkedWith",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [
+                {
+                  "name": "ExperienceGroup",
+                  "index": 1.0,
+                  "aggr": "sum"
+                }
+              ],
+              "values": [
+                {
+                  "name": "Percentage",
+                  "index": 3.0,
+                  "aggr": "sum"
+                }
+              ],
+              "commonSetting": {}
+            },
+            "helium": {}
+          },
+          "1": {
+            "graph": {
+              "mode": "table",
+              "height": 267.0,
+              "optionOpen": false,
+              "setting": {
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "stacked": false
+                },
+                "stackedAreaChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default"
+                },
+                "lineChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default"
+                },
+                "table": {
+                  "tableGridState": {
+                    "columns": [
+                      {
+                        "name": "LanguageWorkedWith0",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "DeveloperCount1",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "percentage2",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {
+                          "priority": 0.0,
+                          "direction": "asc"
+                        },
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      }
+                    ],
+                    "scrollFocus": {},
+                    "selection": [],
+                    "grouping": {
+                      "grouping": [
+                        {
+                          "field": "percentage2",
+                          "groupPriority": 0.0,
+                          "colName": "percentage2"
+                        }
+                      ],
+                      "aggregations": [],
+                      "rowExpandedStates": {}
+                    },
+                    "treeView": {},
+                    "pagination": {
+                      "paginationCurrentPage": 1.0,
+                      "paginationPageSize": 250.0
+                    }
+                  },
+                  "tableColumnTypeState": {
+                    "names": {
+                      "LanguageWorkedWith": "string",
+                      "ExperienceGroup": "string",
+                      "Count": "string",
+                      "Percentage": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "scatterChart": {}
+              },
+              "commonSetting": {},
+              "keys": [
+                {
+                  "name": "LanguageWorkedWith",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [],
+              "values": []
+            }
+          }
+        },
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala",
+        "editorHide": false
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "import org.apache.spark.sql.DataFrame\nimport org.apache.spark.sql.types._\nimport org.apache.spark.sql.functions._\nimport org.apache.spark.sql.Column\nimport com.sope.spark.sql._\nimport com.sope.spark.sql.dsl._\n\u001b[1m\u001b[34msurveyRawDf\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.Dataset[org.apache.spark.sql.Row]\u001b[0m \u003d [Respondent: string, MainBranch: string ... 83 more fields]\n\u001b[1m\u001b[34mcastIntFunc\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.Column \u003d\u003e org.apache.spark.sql.Column\u001b[0m \u003d \u003cfunction1\u003e\n\u001b[1m\u001b[34mcastLongFunc\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.Column \u003d\u003e org.apache.spark.sql.Column\u001b[0m \u003d \u003cfunction1\u003e\n\u001b[1m\u001b[34mexplodeFunc\u001b[0m: \u001b[1m\u001b[32mString \u003d\u003e com.sope.spark.sql.DFFunc\u001b[0m \u003d \u003cfunction1\u003e\n\u001b[1m\u001b[34mExperienceLabel\u001b[0m: \u001b[1m\u001b[32mString\u001b[0m \u003d ExperienceGroup\n\u001b[1m\u001b[34mexperienceLabelTransform\u001b[0m: \u001b[1m\u001b[32mco..."
+          }
+        ]
+      },
+      "apps": [],
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1591371450226_-1194076760",
+      "id": "paragraph_1591371450226_-1194076760",
+      "dateCreated": "2020-06-05 15:37:30.226",
+      "dateStarted": "2020-06-19 15:50:52.557",
+      "dateFinished": "2020-06-19 15:51:14.965",
+      "status": "FINISHED"
+    },
+    {
+      "title": "Popular Programming Langauges",
+      "text": "\n%spark\nz.show(explodeAndGroup(\"LanguageWorkedWith\", ExperienceLabel))",
+      "user": "anonymous",
+      "dateUpdated": "2020-06-19 15:51:18.527",
+      "config": {
+        "colWidth": 6.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "multiBarChart",
+              "height": 330.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "LanguageWorkedWith": "string",
+                      "ExperienceGroup": "string",
+                      "Count": "string",
+                      "Percentage": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "stacked": true
+                }
+              },
+              "commonSetting": {},
+              "keys": [
+                {
+                  "name": "LanguageWorkedWith",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [
+                {
+                  "name": "ExperienceGroup",
+                  "index": 1.0,
+                  "aggr": "sum"
+                }
+              ],
+              "values": [
+                {
+                  "name": "Percentage",
+                  "index": 3.0,
+                  "aggr": "sum"
+                }
+              ]
+            },
+            "helium": {}
+          }
+        },
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala",
+        "title": true,
+        "editorHide": false
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "LanguageWorkedWith\tExperienceGroup\tCount\tPercentage\nJavaScript\tExp:5-10 yrs\t23274\t26.6\nHTML/CSS\tExp:5-10 yrs\t21572\t24.7\nSQL\tExp:5-10 yrs\t18207\t20.8\nJava\tExp:5-10 yrs\t15094\t17.3\nPython\tExp:5-10 yrs\t14768\t16.9\nJavaScript\tExp:15+ yrs\t14763\t16.9\nHTML/CSS\tExp:15+ yrs\t13335\t15.3\nSQL\tExp:15+ yrs\t13015\t14.9\nBash/Shell/PowerShell\tExp:5-10 yrs\t11626\t13.3\nHTML/CSS\tExp:5 yrs below\t10762\t12.3\nC#\tExp:5-10 yrs\t10508\t12.0\nJavaScript\tExp:5 yrs below\t10438\t11.9\nBash/Shell/PowerShell\tExp:15+ yrs\t10268\t11.8\nJavaScript\tExp:10-15 yrs\t9801\t11.2\nPHP\tExp:5-10 yrs\t9320\t10.7\nHTML/CSS\tExp:10-15 yrs\t8753\t10.0\nPython\tExp:15+ yrs\t8569\t9.8\nC++\tExp:5-10 yrs\t8315\t9.5\nSQL\tExp:10-15 yrs\t7910\t9.1\nJava\tExp:15+ yrs\t7847\t9.0\nSQL\tExp:5 yrs below\t7760\t8.9\nC#\tExp:15+ yrs\t7787\t8.9\nTypeScript\tExp:5-10 yrs\t7703\t8.8\nC\tExp:5-10 yrs\t7149\t8.2\nJava\tExp:5 yrs below\t6998\t8.0\nPython\tExp:5 yrs below\t6929\t7.9\nBash/Shell/PowerShell\tExp:10-15 yrs\t5648\t6.5\nPython\tExp:10-15 yrs\t5490\t6.3\nJava\tExp:10-15 yrs\t5386\t6.2\nPHP\tExp:15+ yrs\t5142\t5.9\nC++\tExp:15+ yrs\t4802\t5.5\nTypeScript\tExp:15+ yrs\t4710\t5.4\nC#\tExp:10-15 yrs\t4558\t5.2\nPHP\tExp:5 yrs below\t4486\t5.1\nC\tExp:15+ yrs\t4280\t4.9\nC++\tExp:5 yrs below\t4068\t4.7\nBash/Shell/PowerShell\tExp:5 yrs below\t4040\t4.6\nC#\tExp:5 yrs below\t3930\t4.5\nC\tExp:5 yrs below\t3835\t4.4\nPHP\tExp:10-15 yrs\t3716\t4.3\nTypeScript\tExp:10-15 yrs\t3503\t4.0\nC++\tExp:10-15 yrs\t2913\t3.3\nOther(s):\tExp:15+ yrs\t2900\t3.3\nGo\tExp:5-10 yrs\t2806\t3.2\nRuby\tExp:5-10 yrs\t2739\t3.1\nOther(s):\tExp:5-10 yrs\t2633\t3.0\nKotlin\tExp:5-10 yrs\t2511\t2.9\nTypeScript\tExp:5 yrs below\t2420\t2.8\nSwift\tExp:5-10 yrs\t2389\t2.7\nC\tExp:10-15 yrs\t2321\t2.7\nAssembly\tExp:5-10 yrs\t2361\t2.7\nGo\tExp:15+ yrs\t2243\t2.6\nRuby\tExp:15+ yrs\t2115\t2.4\nR\tExp:5-10 yrs\t2043\t2.3\nVBA\tExp:5-10 yrs\t1629\t1.9\nObjective-C\tExp:5-10 yrs\t1581\t1.8\nVBA\tExp:15+ yrs\t1551\t1.8\nSwift\tExp:15+ yrs\t1417\t1.6\nGo\tExp:10-15 yrs\t1398\t1.6\nAssembly\tExp:15+ yrs\t1311\t1.5\nRuby\tExp:10-15 yrs\t1277\t1.5\nObjective-C\tExp:15+ yrs\t1300\t1.5\nScala\tExp:5-10 yrs\t1284\t1.5\nAssembly\tExp:5 yrs below\t1286\t1.5\nRust\tExp:5-10 yrs\t1188\t1.4\nOther(s):\tExp:10-15 yrs\t1218\t1.4\nKotlin\tExp:15+ yrs\t1219\t1.4\nR\tExp:15+ yrs\t1148\t1.3\nScala\tExp:15+ yrs\t1034\t1.2\nR\tExp:5 yrs below\t1054\t1.2\nRuby\tExp:5 yrs below\t1079\t1.2\nOther(s):\tExp:5 yrs below\t1013\t1.2\nHTML/CSS\tNA\t1044\t1.2\nKotlin\tExp:10-15 yrs\t977\t1.1\nJavaScript\tNA\t943\t1.1\nSwift\tExp:10-15 yrs\t966\t1.1\nKotlin\tExp:5 yrs below\t839\t1.0\nSwift\tExp:5 yrs below\t865\t1.0\nDart\tExp:5-10 yrs\t747\t0.9\nObjective-C\tExp:10-15 yrs\t776\t0.9\nVBA\tExp:5 yrs below\t803\t0.9\nVBA\tExp:10-15 yrs\t689\t0.8\nGo\tExp:5 yrs below\t666\t0.8\nRust\tExp:15+ yrs\t734\t0.8\nPython\tNA\t687\t0.8\nR\tExp:10-15 yrs\t691\t0.8\nAssembly\tExp:10-15 yrs\t670\t0.8\nScala\tExp:10-15 yrs\t679\t0.8\nSQL\tNA\t652\t0.7\nJava\tNA\t592\t0.7\nClojure\tExp:15+ yrs\t497\t0.6\nNA\tNA\t507\t0.6\nRust\tExp:10-15 yrs\t541\t0.6\nBash/Shell/PowerShell\tNA\t409\t0.5\nObjective-C\tExp:5 yrs below\t451\t0.5\nC\tNA\t432\t0.5\nElixir\tExp:5-10 yrs\t455\t0.5\nC++\tNA\t426\t0.5\nNA\tExp:5 yrs below\t375\t0.4\nWebAssembly\tExp:15+ yrs\t334\t0.4\nDart\tExp:5 yrs below\t338\t0.4\nClojure\tExp:5-10 yrs\t387\t0.4\nDart\tExp:15+ yrs\t332\t0.4\nWebAssembly\tExp:5-10 yrs\t325\t0.4\nElixir\tExp:15+ yrs\t357\t0.4\nPHP\tNA\t366\t0.4\nC#\tNA\t314\t0.4\nF#\tExp:15+ yrs\t364\t0.4\nErlang\tExp:5-10 yrs\t244\t0.3\nDart\tExp:10-15 yrs\t226\t0.3\nScala\tExp:5 yrs below\t273\t0.3\nElixir\tExp:10-15 yrs\t265\t0.3\nRust\tExp:5 yrs below\t277\t0.3\nF#\tExp:5-10 yrs\t304\t0.3\nNA\tExp:5-10 yrs\t240\t0.3\nErlang\tExp:15+ yrs\t274\t0.3\nClojure\tExp:10-15 yrs\t210\t0.2\nOther(s):\tNA\t156\t0.2\nTypeScript\tNA\t187\t0.2\nWebAssembly\tExp:5 yrs below\t133\t0.2\nWebAssembly\tExp:10-15 yrs\t165\t0.2\nErlang\tExp:10-15 yrs\t140\t0.2\nElixir\tExp:5 yrs below\t145\t0.2\nAssembly\tNA\t205\t0.2\nF#\tExp:10-15 yrs\t161\t0.2\nWebAssembly\tNA\t58\t0.1\nRust\tNA\t54\t0.1\nObjective-C\tNA\t83\t0.1\nF#\tExp:5 yrs below\t107\t0.1\nNA\tExp:10-15 yrs\t75\t0.1\nKotlin\tNA\t74\t0.1\nRuby\tNA\t121\t0.1\nErlang\tExp:5 yrs below\t84\t0.1\nNA\tExp:15+ yrs\t117\t0.1\nSwift\tNA\t107\t0.1\nVBA\tNA\t109\t0.1\nR\tNA\t112\t0.1\nClojure\tExp:5 yrs below\t117\t0.1\nGo\tNA\t88\t0.1\nF#\tNA\t37\t0.0\nClojure\tNA\t43\t0.0\nElixir\tNA\t38\t0.0\nScala\tNA\t39\t0.0\nErlang\tNA\t35\t0.0\nDart\tNA\t40\t0.0\n"
+          }
+        ]
+      },
+      "apps": [],
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1592386692743_1488325279",
+      "id": "paragraph_1592386692743_1488325279",
+      "dateCreated": "2020-06-17 09:38:12.744",
+      "dateStarted": "2020-06-19 15:51:18.561",
+      "dateFinished": "2020-06-19 15:51:33.289",
+      "status": "FINISHED"
+    },
+    {
+      "title": "Popular Programming Langauges (Spark Developers)",
+      "text": "%spark\nz.show(explodeAndGroup(\"LanguageWorkedWith\", ExperienceLabel, sparkDevFilter))",
+      "user": "anonymous",
+      "dateUpdated": "2020-06-19 15:51:34.782",
+      "config": {
+        "colWidth": 6.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "multiBarChart",
+              "height": 346.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "DevEnviron": "string",
+                      "ExperienceGroup": "string",
+                      "Count": "string",
+                      "Percentage": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "stacked": true
+                }
+              },
+              "commonSetting": {},
+              "keys": [
+                {
+                  "name": "LanguageWorkedWith",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [
+                {
+                  "name": "ExperienceGroup",
+                  "index": 1.0,
+                  "aggr": "sum"
+                }
+              ],
+              "values": [
+                {
+                  "name": "Percentage",
+                  "index": 3.0,
+                  "aggr": "sum"
+                }
+              ]
+            },
+            "helium": {}
+          }
+        },
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "LanguageWorkedWith\tExperienceGroup\tCount\tPercentage\nPython\tExp:5-10 yrs\t992\t29.5\nSQL\tExp:5-10 yrs\t950\t28.2\nJava\tExp:5-10 yrs\t882\t26.2\nJavaScript\tExp:5-10 yrs\t800\t23.8\nHTML/CSS\tExp:5-10 yrs\t733\t21.8\nBash/Shell/PowerShell\tExp:5-10 yrs\t656\t19.5\nPython\tExp:15+ yrs\t616\t18.3\nSQL\tExp:15+ yrs\t580\t17.2\nJava\tExp:15+ yrs\t549\t16.3\nBash/Shell/PowerShell\tExp:15+ yrs\t531\t15.8\nJavaScript\tExp:15+ yrs\t516\t15.3\nScala\tExp:5-10 yrs\t452\t13.4\nPython\tExp:10-15 yrs\t417\t12.4\nHTML/CSS\tExp:15+ yrs\t403\t12.0\nJava\tExp:10-15 yrs\t398\t11.8\nSQL\tExp:10-15 yrs\t384\t11.4\nScala\tExp:15+ yrs\t370\t11.0\nC++\tExp:5-10 yrs\t365\t10.8\nJavaScript\tExp:10-15 yrs\t342\t10.2\nC\tExp:5-10 yrs\t341\t10.1\nBash/Shell/PowerShell\tExp:10-15 yrs\t333\t9.9\nSQL\tExp:5 yrs below\t333\t9.9\nPHP\tExp:5-10 yrs\t328\t9.7\nPython\tExp:5 yrs below\t323\t9.6\nHTML/CSS\tExp:5 yrs below\t316\t9.4\nJavaScript\tExp:5 yrs below\t301\t8.9\nC#\tExp:5-10 yrs\t300\t8.9\nR\tExp:5-10 yrs\t282\t8.4\nJava\tExp:5 yrs below\t284\t8.4\nScala\tExp:10-15 yrs\t260\t7.7\nHTML/CSS\tExp:10-15 yrs\t254\t7.5\nTypeScript\tExp:5-10 yrs\t238\t7.1\nC++\tExp:15+ yrs\t218\t6.5\nC\tExp:15+ yrs\t204\t6.1\nBash/Shell/PowerShell\tExp:5 yrs below\t187\t5.6\nC#\tExp:15+ yrs\t188\t5.6\nTypeScript\tExp:15+ yrs\t184\t5.5\nGo\tExp:5-10 yrs\t178\t5.3\nPHP\tExp:5 yrs below\t175\t5.2\nC++\tExp:5 yrs below\t166\t4.9\nC\tExp:5 yrs below\t161\t4.8\nGo\tExp:15+ yrs\t158\t4.7\nR\tExp:15+ yrs\t159\t4.7\nC++\tExp:10-15 yrs\t148\t4.4\nRuby\tExp:5-10 yrs\t137\t4.1\nAssembly\tExp:5-10 yrs\t139\t4.1\nPHP\tExp:15+ yrs\t133\t4.0\nTypeScript\tExp:10-15 yrs\t129\t3.8\nRuby\tExp:15+ yrs\t124\t3.7\nC\tExp:10-15 yrs\t121\t3.6\nC#\tExp:10-15 yrs\t120\t3.6\nR\tExp:10-15 yrs\t115\t3.4\nGo\tExp:10-15 yrs\t110\t3.3\nOther(s):\tExp:15+ yrs\t108\t3.2\nC#\tExp:5 yrs below\t100\t3.0\nPHP\tExp:10-15 yrs\t97\t2.9\nR\tExp:5 yrs below\t93\t2.8\nKotlin\tExp:5-10 yrs\t93\t2.8\nScala\tExp:5 yrs below\t91\t2.7\nOther(s):\tExp:5-10 yrs\t90\t2.7\nKotlin\tExp:15+ yrs\t84\t2.5\nVBA\tExp:5-10 yrs\t75\t2.2\nTypeScript\tExp:5 yrs below\t73\t2.2\nSwift\tExp:5-10 yrs\t72\t2.1\nAssembly\tExp:15+ yrs\t70\t2.1\nAssembly\tExp:5 yrs below\t70\t2.1\nObjective-C\tExp:5-10 yrs\t68\t2.0\nSwift\tExp:15+ yrs\t59\t1.8\nRuby\tExp:10-15 yrs\t60\t1.8\nGo\tExp:5 yrs below\t51\t1.5\nRust\tExp:15+ yrs\t50\t1.5\nRust\tExp:5-10 yrs\t51\t1.5\nOther(s):\tExp:10-15 yrs\t51\t1.5\nVBA\tExp:15+ yrs\t52\t1.5\nKotlin\tExp:10-15 yrs\t47\t1.4\nRuby\tExp:5 yrs below\t47\t1.4\nObjective-C\tExp:15+ yrs\t47\t1.4\nVBA\tExp:5 yrs below\t45\t1.3\nHTML/CSS\tNA\t40\t1.2\nJava\tNA\t40\t1.2\nWebAssembly\tExp:15+ yrs\t41\t1.2\nSQL\tNA\t40\t1.2\nClojure\tExp:15+ yrs\t42\t1.2\nRust\tExp:10-15 yrs\t39\t1.2\nAssembly\tExp:10-15 yrs\t37\t1.1\nKotlin\tExp:5 yrs below\t37\t1.1\nClojure\tExp:5-10 yrs\t37\t1.1\nObjective-C\tExp:5 yrs below\t37\t1.1\nSwift\tExp:5 yrs below\t37\t1.1\nErlang\tExp:15+ yrs\t36\t1.1\nOther(s):\tExp:5 yrs below\t32\t1.0\nObjective-C\tExp:10-15 yrs\t32\t1.0\nPython\tNA\t33\t1.0\nJavaScript\tNA\t34\t1.0\nSwift\tExp:10-15 yrs\t33\t1.0\nVBA\tExp:10-15 yrs\t31\t0.9\nBash/Shell/PowerShell\tNA\t30\t0.9\nElixir\tExp:5-10 yrs\t29\t0.9\nWebAssembly\tExp:5-10 yrs\t29\t0.9\nAssembly\tNA\t29\t0.9\nPHP\tNA\t26\t0.8\nDart\tExp:5-10 yrs\t27\t0.8\nC++\tNA\t23\t0.7\nClojure\tExp:10-15 yrs\t22\t0.7\nDart\tExp:5 yrs below\t25\t0.7\nC\tNA\t25\t0.7\nElixir\tExp:15+ yrs\t24\t0.7\nF#\tExp:15+ yrs\t25\t0.7\nWebAssembly\tNA\t21\t0.6\nRuby\tNA\t19\t0.6\nWebAssembly\tExp:5 yrs below\t21\t0.6\nScala\tNA\t19\t0.6\nRust\tExp:5 yrs below\t20\t0.6\nR\tNA\t21\t0.6\nTypeScript\tNA\t19\t0.6\nDart\tExp:15+ yrs\t21\t0.6\nC#\tNA\t19\t0.6\nErlang\tExp:5-10 yrs\t16\t0.5\nF#\tExp:5-10 yrs\t17\t0.5\nObjective-C\tNA\t17\t0.5\nVBA\tNA\t18\t0.5\nOther(s):\tNA\t18\t0.5\nErlang\tNA\t16\t0.5\nF#\tNA\t16\t0.5\nClojure\tNA\t16\t0.5\nElixir\tExp:10-15 yrs\t17\t0.5\nElixir\tExp:5 yrs below\t16\t0.5\nErlang\tExp:10-15 yrs\t16\t0.5\nGo\tNA\t16\t0.5\nKotlin\tNA\t12\t0.4\nSwift\tNA\t15\t0.4\nF#\tExp:5 yrs below\t12\t0.4\nElixir\tNA\t15\t0.4\nErlang\tExp:5 yrs below\t13\t0.4\nRust\tNA\t12\t0.4\nClojure\tExp:5 yrs below\t14\t0.4\nDart\tNA\t14\t0.4\nWebAssembly\tExp:10-15 yrs\t12\t0.4\nF#\tExp:10-15 yrs\t11\t0.3\nDart\tExp:10-15 yrs\t9\t0.3\nNA\tExp:5 yrs below\t6\t0.2\nNA\tExp:5-10 yrs\t6\t0.2\nNA\tExp:10-15 yrs\t3\t0.1\nNA\tExp:15+ yrs\t4\t0.1\nNA\tNA\t4\t0.1\n"
+          }
+        ]
+      },
+      "apps": [],
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1592387209233_-986770739",
+      "id": "paragraph_1592387209233_-986770739",
+      "dateCreated": "2020-06-17 09:46:49.234",
+      "dateStarted": "2020-06-19 15:51:34.818",
+      "dateFinished": "2020-06-19 15:51:38.736",
+      "status": "FINISHED"
+    },
+    {
+      "title": "Popular IDEs",
+      "text": "%spark\nz.show(explodeAndGroup(\"DevEnviron\", ExperienceLabel))",
+      "user": "anonymous",
+      "dateUpdated": "2020-06-19 15:51:52.330",
+      "config": {
+        "colWidth": 6.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "multiBarChart",
+              "height": 364.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "WorkChallenge": "string",
+                      "ExperienceGroup": "string",
+                      "Count": "string",
+                      "Percentage": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "stacked": true
+                }
+              },
+              "commonSetting": {},
+              "keys": [
+                {
+                  "name": "DevEnviron",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [
+                {
+                  "name": "ExperienceGroup",
+                  "index": 1.0,
+                  "aggr": "sum"
+                }
+              ],
+              "values": [
+                {
+                  "name": "Percentage",
+                  "index": 3.0,
+                  "aggr": "max"
+                }
+              ]
+            },
+            "helium": {}
+          }
+        },
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala",
+        "editorHide": false,
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "DevEnviron\tExperienceGroup\tCount\tPercentage\nVisual Studio Code\tExp:5-10 yrs\t18008\t20.6\nNotepad++\tExp:5-10 yrs\t10259\t11.7\nVisual Studio\tExp:5-10 yrs\t10109\t11.6\nVisual Studio Code\tExp:15+ yrs\t9971\t11.4\nIntelliJ\tExp:5-10 yrs\t9482\t10.9\nSublime Text\tExp:5-10 yrs\t8852\t10.1\nVim\tExp:5-10 yrs\t8649\t9.9\nVisual Studio Code\tExp:5 yrs below\t8593\t9.8\nVisual Studio\tExp:15+ yrs\t7799\t8.9\nVisual Studio Code\tExp:10-15 yrs\t6902\t7.9\nNotepad++\tExp:15+ yrs\t6708\t7.7\nVim\tExp:15+ yrs\t6635\t7.6\nAndroid Studio\tExp:5-10 yrs\t6301\t7.2\nIntelliJ\tExp:15+ yrs\t4937\t5.7\nPyCharm\tExp:5-10 yrs\t4974\t5.7\nEclipse\tExp:5-10 yrs\t4822\t5.5\nAtom\tExp:5-10 yrs\t4757\t5.4\nVisual Studio\tExp:5 yrs below\t4642\t5.3\nNotepad++\tExp:5 yrs below\t4636\t5.3\nSublime Text\tExp:5 yrs below\t4354\t5.0\nVisual Studio\tExp:10-15 yrs\t4399\t5.0\nNotepad++\tExp:10-15 yrs\t4401\t5.0\nVim\tExp:10-15 yrs\t4017\t4.6\nIntelliJ\tExp:5 yrs below\t3785\t4.3\nIntelliJ\tExp:10-15 yrs\t3671\t4.2\nSublime Text\tExp:15+ yrs\t3678\t4.2\nAndroid Studio\tExp:5 yrs below\t3464\t4.0\nIPython / Jupyter\tExp:5-10 yrs\t3404\t3.9\nXcode\tExp:5-10 yrs\t3220\t3.7\nEclipse\tExp:15+ yrs\t3193\t3.7\nSublime Text\tExp:10-15 yrs\t3076\t3.5\nAtom\tExp:5 yrs below\t2880\t3.3\nPHPStorm\tExp:5-10 yrs\t2791\t3.2\nPyCharm\tExp:5 yrs below\t2623\t3.0\nVim\tExp:5 yrs below\t2616\t3.0\nAndroid Studio\tExp:15+ yrs\t2540\t2.9\nEclipse\tExp:5 yrs below\t2466\t2.8\nPyCharm\tExp:15+ yrs\t2167\t2.5\nXcode\tExp:15+ yrs\t2197\t2.5\nAndroid Studio\tExp:10-15 yrs\t2068\t2.4\nNetBeans\tExp:5-10 yrs\t1996\t2.3\nAtom\tExp:15+ yrs\t2048\t2.3\nIPython / Jupyter\tExp:5 yrs below\t1865\t2.1\nEclipse\tExp:10-15 yrs\t1783\t2.0\nEmacs\tExp:15+ yrs\t1648\t1.9\nIPython / Jupyter\tExp:15+ yrs\t1631\t1.9\nPyCharm\tExp:10-15 yrs\t1672\t1.9\nAtom\tExp:10-15 yrs\t1615\t1.8\nNetBeans\tExp:5 yrs below\t1454\t1.7\nXcode\tExp:5 yrs below\t1303\t1.5\nXcode\tExp:10-15 yrs\t1332\t1.5\nPHPStorm\tExp:15+ yrs\t1349\t1.5\nPHPStorm\tExp:10-15 yrs\t1211\t1.4\nIPython / Jupyter\tExp:10-15 yrs\t1174\t1.3\nPHPStorm\tExp:5 yrs below\t1178\t1.3\nEmacs\tExp:5-10 yrs\t1141\t1.3\nRStudio\tExp:5-10 yrs\t1138\t1.3\nNetBeans\tExp:15+ yrs\t903\t1.0\nVisual Studio Code\tNA\t837\t1.0\nRStudio\tExp:5 yrs below\t689\t0.8\nRStudio\tExp:15+ yrs\t643\t0.7\nEmacs\tExp:10-15 yrs\t646\t0.7\nNotepad++\tNA\t617\t0.7\nNetBeans\tExp:10-15 yrs\t574\t0.7\nVisual Studio\tNA\t541\t0.6\nNA\tNA\t414\t0.5\nAndroid Studio\tNA\t414\t0.5\nRubyMine\tExp:5-10 yrs\t449\t0.5\nSublime Text\tNA\t464\t0.5\nEclipse\tNA\t327\t0.4\nRubyMine\tExp:15+ yrs\t313\t0.4\nAtom\tNA\t336\t0.4\nNA\tExp:5-10 yrs\t338\t0.4\nRStudio\tExp:10-15 yrs\t374\t0.4\nNA\tExp:5 yrs below\t309\t0.4\nEmacs\tExp:5 yrs below\t370\t0.4\nTextMate\tExp:15+ yrs\t357\t0.4\nNA\tExp:15+ yrs\t374\t0.4\nIntelliJ\tNA\t291\t0.3\nPyCharm\tNA\t288\t0.3\nIPython / Jupyter\tNA\t243\t0.3\nVim\tNA\t246\t0.3\nCoda\tExp:5 yrs below\t136\t0.2\nNetBeans\tNA\t194\t0.2\nCoda\tExp:5-10 yrs\t147\t0.2\nNA\tExp:10-15 yrs\t131\t0.2\nRubyMine\tExp:5 yrs below\t177\t0.2\nXcode\tNA\t187\t0.2\nCoda\tExp:15+ yrs\t158\t0.2\nTextMate\tExp:5-10 yrs\t182\t0.2\nRubyMine\tExp:10-15 yrs\t208\t0.2\nKomodo\tNA\t61\t0.1\nTextMate\tNA\t65\t0.1\nZend\tExp:15+ yrs\t77\t0.1\nTextMate\tExp:5 yrs below\t77\t0.1\nZend\tExp:5 yrs below\t67\t0.1\nEmacs\tNA\t117\t0.1\nZend\tExp:5-10 yrs\t77\t0.1\nRubyMine\tNA\t55\t0.1\nPHPStorm\tNA\t116\t0.1\nKomodo\tExp:15+ yrs\t98\t0.1\nKomodo\tExp:5-10 yrs\t89\t0.1\nLight Table\tNA\t44\t0.1\nKomodo\tExp:5 yrs below\t85\t0.1\nLight Table\tExp:5 yrs below\t47\t0.1\nZend\tNA\t48\t0.1\nCoda\tExp:10-15 yrs\t71\t0.1\nRStudio\tNA\t96\t0.1\nTextMate\tExp:10-15 yrs\t124\t0.1\nCoda\tNA\t66\t0.1\nLight Table\tExp:5-10 yrs\t31\t0.0\nKomodo\tExp:10-15 yrs\t35\t0.0\nLight Table\tExp:10-15 yrs\t14\t0.0\nZend\tExp:10-15 yrs\t38\t0.0\nLight Table\tExp:15+ yrs\t42\t0.0\n"
+          }
+        ]
+      },
+      "apps": [],
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1592387606847_866799055",
+      "id": "paragraph_1592387606847_866799055",
+      "dateCreated": "2020-06-17 09:53:26.847",
+      "dateStarted": "2020-06-19 15:51:52.356",
+      "dateFinished": "2020-06-19 15:51:55.381",
+      "status": "FINISHED"
+    },
+    {
+      "title": "Popular IDEs (Spark Developers)",
+      "text": "%spark\nz.show(explodeAndGroup(\"DevEnviron\", ExperienceLabel, sparkDevFilter))",
+      "user": "anonymous",
+      "dateUpdated": "2020-06-19 15:51:56.906",
+      "config": {
+        "colWidth": 6.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "multiBarChart",
+              "height": 364.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "CareerSat": "string",
+                      "ExperienceGroup": "string",
+                      "Count": "string",
+                      "Percentage": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                },
+                "multiBarChart": {
+                  "rotate": {
+                    "degree": "-45"
+                  },
+                  "xLabelStatus": "default",
+                  "stacked": true
+                }
+              },
+              "commonSetting": {},
+              "keys": [
+                {
+                  "name": "DevEnviron",
+                  "index": 0.0,
+                  "aggr": "sum"
+                }
+              ],
+              "groups": [
+                {
+                  "name": "ExperienceGroup",
+                  "index": 1.0,
+                  "aggr": "sum"
+                }
+              ],
+              "values": [
+                {
+                  "name": "Percentage",
+                  "index": 3.0,
+                  "aggr": "sum"
+                }
+              ]
+            },
+            "helium": {}
+          }
+        },
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala",
+        "title": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "DevEnviron\tExperienceGroup\tCount\tPercentage\nIntelliJ\tExp:5-10 yrs\t713\t21.1\nVisual Studio Code\tExp:5-10 yrs\t644\t19.0\nVim\tExp:5-10 yrs\t534\t15.8\nIPython / Jupyter\tExp:5-10 yrs\t504\t14.9\nSublime Text\tExp:5-10 yrs\t502\t14.8\nIntelliJ\tExp:15+ yrs\t460\t13.6\nPyCharm\tExp:5-10 yrs\t418\t12.4\nNotepad++\tExp:5-10 yrs\t416\t12.3\nVim\tExp:15+ yrs\t406\t12.0\nVisual Studio Code\tExp:15+ yrs\t380\t11.2\nIntelliJ\tExp:10-15 yrs\t358\t10.6\nEclipse\tExp:5-10 yrs\t284\t8.4\nVisual Studio\tExp:5-10 yrs\t271\t8.0\nAtom\tExp:5-10 yrs\t259\t7.7\nIPython / Jupyter\tExp:15+ yrs\t254\t7.5\nVim\tExp:10-15 yrs\t246\t7.3\nVisual Studio Code\tExp:10-15 yrs\t247\t7.3\nAndroid Studio\tExp:5-10 yrs\t239\t7.1\nVisual Studio Code\tExp:5 yrs below\t234\t6.9\nNotepad++\tExp:15+ yrs\t219\t6.5\nNotepad++\tExp:5 yrs below\t206\t6.1\nPyCharm\tExp:15+ yrs\t203\t6.0\nIntelliJ\tExp:5 yrs below\t193\t5.7\nIPython / Jupyter\tExp:5 yrs below\t194\t5.7\nIPython / Jupyter\tExp:10-15 yrs\t190\t5.6\nEclipse\tExp:15+ yrs\t188\t5.6\nNotepad++\tExp:10-15 yrs\t186\t5.5\nSublime Text\tExp:15+ yrs\t183\t5.4\nSublime Text\tExp:5 yrs below\t180\t5.3\nSublime Text\tExp:10-15 yrs\t178\t5.3\nRStudio\tExp:5-10 yrs\t172\t5.1\nPyCharm\tExp:5 yrs below\t163\t4.8\nVisual Studio\tExp:15+ yrs\t159\t4.7\nPyCharm\tExp:10-15 yrs\t158\t4.7\nAndroid Studio\tExp:5 yrs below\t142\t4.2\nEclipse\tExp:10-15 yrs\t133\t3.9\nVim\tExp:5 yrs below\t132\t3.9\nVisual Studio\tExp:5 yrs below\t128\t3.8\nAtom\tExp:15+ yrs\t128\t3.8\nAtom\tExp:5 yrs below\t125\t3.7\nEclipse\tExp:5 yrs below\t118\t3.5\nNetBeans\tExp:5-10 yrs\t110\t3.3\nVisual Studio\tExp:10-15 yrs\t108\t3.2\nEmacs\tExp:15+ yrs\t104\t3.1\nXcode\tExp:5-10 yrs\t103\t3.0\nPHPStorm\tExp:5-10 yrs\t98\t2.9\nRStudio\tExp:15+ yrs\t97\t2.9\nAndroid Studio\tExp:15+ yrs\t96\t2.8\nXcode\tExp:15+ yrs\t90\t2.7\nAtom\tExp:10-15 yrs\t92\t2.7\nNetBeans\tExp:5 yrs below\t78\t2.3\nAndroid Studio\tExp:10-15 yrs\t76\t2.2\nRStudio\tExp:5 yrs below\t74\t2.2\nRStudio\tExp:10-15 yrs\t66\t2.0\nEmacs\tExp:5-10 yrs\t63\t1.9\nPHPStorm\tExp:5 yrs below\t60\t1.8\nEmacs\tExp:10-15 yrs\t56\t1.7\nXcode\tExp:5 yrs below\t53\t1.6\nNetBeans\tExp:15+ yrs\t49\t1.4\nXcode\tExp:10-15 yrs\t43\t1.3\nPHPStorm\tExp:15+ yrs\t42\t1.2\nAndroid Studio\tNA\t38\t1.1\nVisual Studio Code\tNA\t37\t1.1\nAtom\tNA\t33\t1.0\nEclipse\tNA\t35\t1.0\nVisual Studio\tNA\t34\t1.0\nIPython / Jupyter\tNA\t35\t1.0\nVim\tNA\t30\t0.9\nPHPStorm\tExp:10-15 yrs\t30\t0.9\nIntelliJ\tNA\t31\t0.9\nPyCharm\tNA\t29\t0.9\nSublime Text\tNA\t30\t0.9\nNotepad++\tNA\t32\t0.9\nTextMate\tExp:15+ yrs\t29\t0.9\nNetBeans\tExp:10-15 yrs\t28\t0.8\nRubyMine\tExp:5-10 yrs\t26\t0.8\nRStudio\tNA\t26\t0.8\nRubyMine\tExp:15+ yrs\t27\t0.8\nKomodo\tExp:5 yrs below\t22\t0.7\nCoda\tNA\t25\t0.7\nCoda\tExp:5 yrs below\t24\t0.7\nNetBeans\tNA\t24\t0.7\nEmacs\tNA\t22\t0.7\nRubyMine\tExp:5 yrs below\t24\t0.7\nXcode\tNA\t24\t0.7\nPHPStorm\tNA\t22\t0.7\nZend\tNA\t22\t0.7\nEmacs\tExp:5 yrs below\t23\t0.7\nKomodo\tNA\t21\t0.6\nRubyMine\tNA\t20\t0.6\nTextMate\tExp:5 yrs below\t19\t0.6\nZend\tExp:5 yrs below\t20\t0.6\nTextMate\tNA\t21\t0.6\nCoda\tExp:5-10 yrs\t16\t0.5\nTextMate\tExp:5-10 yrs\t17\t0.5\nLight Table\tNA\t18\t0.5\nCoda\tExp:15+ yrs\t18\t0.5\nZend\tExp:5-10 yrs\t12\t0.4\nLight Table\tExp:15+ yrs\t14\t0.4\nKomodo\tExp:15+ yrs\t13\t0.4\nZend\tExp:15+ yrs\t14\t0.4\nLight Table\tExp:5 yrs below\t15\t0.4\nRubyMine\tExp:10-15 yrs\t13\t0.4\nKomodo\tExp:5-10 yrs\t8\t0.2\nLight Table\tExp:5-10 yrs\t7\t0.2\nCoda\tExp:10-15 yrs\t8\t0.2\nNA\tExp:5-10 yrs\t5\t0.1\nNA\tNA\t2\t0.1\nNA\tExp:15+ yrs\t2\t0.1\nTextMate\tExp:10-15 yrs\t5\t0.1\nKomodo\tExp:10-15 yrs\t4\t0.1\nNA\tExp:5 yrs below\t2\t0.1\nLight Table\tExp:10-15 yrs\t2\t0.1\nZend\tExp:10-15 yrs\t5\t0.1\n"
+          }
+        ]
+      },
+      "apps": [],
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1592389549438_1255336459",
+      "id": "paragraph_1592389549438_1255336459",
+      "dateCreated": "2020-06-17 10:25:49.439",
+      "dateStarted": "2020-06-19 15:51:56.935",
+      "dateFinished": "2020-06-19 15:51:59.995",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%spark\n",
+      "user": "anonymous",
+      "dateUpdated": "2020-06-19 13:19:20.945",
+      "config": {},
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1592572760945_-2106591654",
+      "id": "paragraph_1592572760945_-2106591654",
+      "dateCreated": "2020-06-19 13:19:20.945",
+      "status": "READY"
+    }
+  ],
+  "name": "stackoverflow_survey_analysis",
+  "id": "2F9KZ85KJ",
+  "defaultInterpreterGroup": "spark",
+  "version": "0.9.0-preview1",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {},
+  "config": {
+    "isZeppelinNotebookCronEnable": false
+  },
+  "info": {}
+}
