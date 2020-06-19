@@ -1,0 +1,31 @@
+inputs:
+  - {type: custom, format: kafka, is_streaming: true, alias: json_tweets, options: {kafka.bootstrap.servers: "kafka:9092", subscribe: tweets}}
+transformations:
+  - input: json_tweets
+    alias: mapped_tweets
+    actions:
+      - {type: transform, list: { tweets: "from_json(get_json_object(cast(value as string), '$.payload'), 'id long, created_at string, user struct<id: long, screen_name: string, location: string>, text string, is_retweet boolean, entities struct< hashtags: array<struct<text: string>>, user_mentions: array<struct<id: long, screen_name: string>>>')"}}
+      - {type: select, columns: ["to_timestamp(tweets.created_at) as event_time", "tweets"]}
+  - input: mapped_tweets
+    alias: top_mentions
+    actions:
+      - type: transform
+        list: {exploded_ht: "explode(tweets.entities.hashtags.text)", hashtags: "concat('#', exploded_ht)"}
+      - type: yaml
+        yaml_file: metric_group_by_template.yaml
+        substitutions:
+          metric_col: hashtags
+        output_alias: "metrics_top_stats"
+  - input: mapped_tweets
+    alias: top_hashtags
+    actions:
+      - type: transform
+        list: {exploded_mt: "explode(tweets.entities.user_mentions.screen_name)", mentions: "concat('@', exploded_mt)"}
+      - type: yaml
+        yaml_file: metric_group_by_template.yaml
+        substitutions:
+          metric_col: mentions
+        output_alias: "metrics_top_stats"
+outputs:
+  - {type: custom, format: console,  is_streaming: true,  input: top_mentions, output_mode: complete, options: {truncate: false, numRows: 5}}
+  - {type: custom, format: console,  is_streaming: true,  input: top_hashtags, output_mode: complete, options: {truncate: false, numRows: 5}}

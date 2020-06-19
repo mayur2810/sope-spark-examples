@@ -1,0 +1,12 @@
+version: '3'
+services:
+  sope-spark-batch-example:
+    build: .
+    environment:
+      - "ZEPPELIN_NOTEBOOK_DIR=/notebook"
+    container_name: sbe
+    ports:
+      - "8080:8080"
+      - "4040:4040"
+    volumes:
+      - ./notebook:/notebook
