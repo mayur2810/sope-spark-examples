@@ -28,10 +28,6 @@ RUN set -x \
 
 ENV PATH /opt/sope-spark/sope-etl/bin/:$PATH
 
-COPY yaml /opt/examples/twitter-yaml
-COPY log4j.properties /opt/examples/twitter-yaml/log4j.properties
-
-
 ADD run.sh /run.sh
 RUN chmod a+x /run.sh
 

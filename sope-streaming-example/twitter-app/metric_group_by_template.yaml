@@ -6,5 +6,5 @@ transformations:
       - {type: select, columns: ["event_time", "${metric_col}"]}
       - {type: filter, condition: "${metric_col} is not null"}
       - {type: watermark, event_time: event_time, delay_threshold: "0 seconds"}
-      - {type: group_by, columns: ["window(event_time, '5 minutes') as event_window", "${metric_col}"], exprs: ["count(${metric_col}) as count"]}
+      - {type: group_by, columns: ["window(event_time, ${interval}) as event_window", "${metric_col}"], exprs: ["count(${metric_col}) as count"]}
       - {type: order_by, columns: ["event_window:desc", "count:desc"]}

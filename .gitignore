@@ -2,3 +2,4 @@
 metastore_db
 .idea
 *.iml
+/sope-streaming-example/twitter-connect/twitter.source.properties

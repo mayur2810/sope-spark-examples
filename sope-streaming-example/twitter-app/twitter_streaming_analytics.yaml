@@ -15,6 +15,7 @@ transformations:
         yaml_file: metric_group_by_template.yaml
         substitutions:
           metric_col: hashtags
+          interval: '''5 minutes'''
         output_alias: "metrics_top_stats"
   - input: mapped_tweets
     alias: top_hashtags
@@ -25,6 +26,7 @@ transformations:
         yaml_file: metric_group_by_template.yaml
         substitutions:
           metric_col: mentions
+          interval: '''5 minutes'''
         output_alias: "metrics_top_stats"
 outputs:
   - {type: custom, format: console,  is_streaming: true,  input: top_mentions, output_mode: complete, options: {truncate: false, numRows: 5}}

@@ -28,5 +28,7 @@ services:
     container_name: sse
     depends_on:
       - kafka
+    volumes:
+      - ./twitter-app:/opt/examples/twitter-app
 volumes:
      kafka_vol:
